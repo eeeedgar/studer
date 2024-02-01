@@ -1,11 +1,14 @@
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.*;
+import java.io.*;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Date;
 import java.util.List;
 
 public class Main extends JFrame {
-    private final List<Figure> figures = new ArrayList<>();
+    private List<Figure> figures = new ArrayList<>();
 
     private FigureType figureType;
     public int countOfClick = 0;
@@ -59,16 +62,82 @@ public class Main extends JFrame {
     private JMenu createFileMenu() {
         JMenu menuFile = new JMenu("Файл");
         JMenuItem open = new JMenuItem("Открыть...");
+        JMenuItem save = new JMenuItem("Сохранить...");
         JMenuItem exit = new JMenuItem("Выход");
         menuFile.add(open);
+        menuFile.addSeparator();
+        menuFile.add(save);
         menuFile.addSeparator();
         menuFile.add(exit);
         exit.addActionListener(actionEvent -> System.exit(0));
         open.addActionListener(actionEvent -> {
             System.out.println("Щелкнули по пункту Открыть...");
             System.out.println(panel.point);
+            JFileChooser chooser = new JFileChooser();
+            if (chooser.showOpenDialog(panel) == JFileChooser.APPROVE_OPTION) {
+                File file = chooser.getSelectedFile();
+                if (file == null) {
+                    return;
+                }
+
+                String fileName = file.getAbsolutePath();
+                try {
+                    readFromFile(fileName);
+                } catch (IOException e) {
+                    throw new RuntimeException(e);
+                }
+
+            }
+        });
+        save.addActionListener(actionEvent -> {
+            JFileChooser fileChooser = new JFileChooser();
+            if (fileChooser.showSaveDialog(panel) == JFileChooser.APPROVE_OPTION) {
+                File file = fileChooser.getSelectedFile();
+                if (file == null) {
+                    return;
+                }
+                // save to file
+                String fileName = file.getAbsolutePath();
+                saveToFile(fileName);
+            }
         });
         return menuFile;
+    }
+
+    private void saveToFile(String filename) {
+        PrintWriter writer;
+        try {
+            writer = new PrintWriter(filename, "UTF-8");
+        } catch (FileNotFoundException | UnsupportedEncodingException e) {
+            throw new RuntimeException(e);
+        }
+        for (Figure f : figures) {
+            String line = f.type.name() + " " + f.beginPoint.x + " " + f.beginPoint.y + " " + f.endPoint.x + " " + f.endPoint.y;
+            writer.println(line);
+        }
+        writer.close();
+    }
+
+    private void readFromFile(String filename) throws IOException {
+        figures = new ArrayList<>();
+        try (BufferedReader br = new BufferedReader(new FileReader(filename))) {
+
+            String line = br.readLine();
+
+            while (!line.isEmpty()) {
+                String[] data = line.split(" ");
+                addFigure(data);
+                line = br.readLine();
+            }
+        }
+    }
+
+    private void addFigure(String[] data) {
+        System.out.println("add figure" + Arrays.stream(data).toList());
+        FigureType type = FigureType.fromString(data[0]);
+        Point beginPoint = new Point(Integer.parseInt(data[1]), Integer.parseInt(data[2]));
+        Point endPoint = new Point(Integer.parseInt(data[3]), Integer.parseInt(data[4]));
+        figures.add(new Figure(type, beginPoint, endPoint));
     }
 
     public static void main(String[] args) {
@@ -96,6 +165,10 @@ public class Main extends JFrame {
                 drawFigure(g);
             }
             g.drawString("Число кликов мыши: " + countOfClick, 10, 20);
+        }
+
+        private void reload() {
+            repaint();
         }
 
         @Override
@@ -138,6 +211,7 @@ public class Main extends JFrame {
 
         @Override
         public void mouseMoved(MouseEvent mouseEvent) {
+            repaint();
         }
 
         private void saveFigure() {
@@ -209,10 +283,29 @@ class Figure {
 }
 
 enum FigureType {
-    point,
-    line,
-    ellipse,
-    rectangle,
-    square,
-    circle,
+    point("point"),
+    line("line"),
+    ellipse("ellipse"),
+    rectangle("rectangle"),
+    square("square"),
+    circle("circle");
+
+    private final String text;
+
+    FigureType(String text) {
+        this.text = text;
+    }
+
+    public String getText() {
+        return this.text;
+    }
+
+    public static FigureType fromString(String text) {
+        for (FigureType b : FigureType.values()) {
+            if (b.text.equalsIgnoreCase(text)) {
+                return b;
+            }
+        }
+        return null;
+    }
 }
